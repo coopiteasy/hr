@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright 2017 Onestein (<http://www.onestein.eu>)
+# Copyright 2019 Coop IT Easy SCRLfs
+#   - Vincent Van Rossem <vincent@coopiteasy.be>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
-from odoo import api, fields, models
+from openerp import api, fields, models
 
 
 class HrHolidaysStatus(models.Model):

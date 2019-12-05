@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 # Copyright 2017 Onestein (<http://www.onestein.eu>)
+# Copyright 2019 Coop IT Easy SCRLfs
+#   - Vincent Van Rossem <vincent@coopiteasy.be>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 import datetime
 
-from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
-from odoo.exceptions import Warning as UserError
+from openerp import _, api, fields, models
+from openerp.exceptions import ValidationError
+from openerp.exceptions import Warning as UserError
 
 
 class HrHolidays(models.Model):
     _inherit = "hr.holidays"
+
+    # number_of_days_temp = fields.Float('Allocation', readonly=True, copy=False,
+    #                                    states={'draft': [('readonly', False)], 'confirm': [('readonly', False)]})
 
     @api.onchange('employee_id')
     def onchange_holiday_employee(self):
@@ -29,6 +34,20 @@ class HrHolidays(models.Model):
         self._check_dates()
         self._check_employee()
         self._set_number_of_hours_temp()
+
+    @api.multi
+    @api.onchange('date_from')
+    def onchange_date_from(self):
+        res = super(HrHolidays, self).onchange_date_from(self.date_to, self.date_from)
+        self.number_of_days_temp = res['value']['number_of_days_temp']
+        return res
+
+    @api.multi
+    @api.onchange('date_to')
+    def onchange_date_to(self):
+        res = super(HrHolidays, self).onchange_date_to(self.date_to, self.date_from)
+        self.number_of_days_temp = res['value']['number_of_days_temp']
+        return res
 
     @api.multi
     def _set_number_of_hours_temp(self):
@@ -77,23 +96,26 @@ class HrHolidays(models.Model):
         work_hours = 0.0
         if self.date_from and self.date_to:
             working_hours = self._get_working_hours(employee)
-            if working_hours:
-                work_hours = working_hours.get_working_hours(
+            for working_hour in working_hours:
+                wh = working_hour.get_working_hours(
                     from_dt,
                     to_dt,
                     compute_leaves=True,
                     resource_id=employee.resource_id.id)
+                if wh:
+                    work_hours += wh[0]
         return work_hours
 
     @api.model
     def _get_working_hours(self, employee):
-        working_hours = None
+        working_hours = []
         if employee.calendar_id:
-            working_hours = employee.calendar_id
+            working_hours.append(employee.calendar_id)
         else:
-            contract = employee.sudo().contract_id
-            if contract and contract.working_hours:
-                working_hours = contract.working_hours
+            contracts = employee.sudo().contract_ids
+            for contract in contracts:
+                if contract.working_hours:
+                    working_hours.append(contract.working_hours)
         return working_hours
 
     @api.depends('number_of_hours_temp', 'state')
@@ -164,9 +186,13 @@ class HrHolidays(models.Model):
         return res
 
     @api.multi
-    def _prepare_create_by_category(self, employee):
-        values = super(HrHolidays, self)._prepare_create_by_category(employee)
-        values.update({
-            'number_of_hours_temp': self.number_of_hours_temp,
-        })
-        return values
+    def holidays_validate(self):
+        #TODO compare with 10.0 and confirm it's correctly inherited
+        res = super(HrHolidays, self).holidays_validate()
+        for holiday in self:
+            if holiday.holiday_type == 'category':
+                for employee in holiday.category_id.employee_ids:
+                    self.write({
+                        'number_of_hours_temp': holiday.number_of_hours_temp,
+                    })
+        return res

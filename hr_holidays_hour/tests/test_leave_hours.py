@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 # Copyright 2017 Onestein (<http://www.onestein.eu>)
+# Copyright 2019 Coop IT Easy SCRLfs
+#   - Vincent Van Rossem <vincent@coopiteasy.be>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from odoo.tests import common
-from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as DF
-from odoo.exceptions import ValidationError
-from odoo.exceptions import Warning as UserError
+from openerp import api
+from openerp.tests import common
+from openerp.tools import DEFAULT_SERVER_DATETIME_FORMAT as DF
+from openerp.exceptions import ValidationError
+from openerp.exceptions import Warning as UserError
 
 
 class TestLeaveHours(common.TransactionCase):
@@ -22,7 +25,7 @@ class TestLeaveHours(common.TransactionCase):
         self.holiday_start = dt_holiday.replace(
             hour=8, minute=0, second=0, microsecond=0)
         self.holiday_end = dt_holiday.replace(
-            hour=18, minute=0, second=0, microsecond=0)
+            hour=15, minute=0, second=0, microsecond=0)
 
         holiday_start = self.holiday_start.strftime(DF)
         holiday_end = self.holiday_end.strftime(DF)
@@ -275,18 +278,12 @@ class TestLeaveHours(common.TransactionCase):
         self.assertEqual(work_limits, [])
 
     def test_05_get_working_intervals_of_day(self):
-        default_interval = (
-            self.holiday_start.hour,
-            self.holiday_end.hour
-        )
-        Calendar = self.env['resource.calendar']
-        interval = Calendar.get_working_intervals_of_day(
+        interval = self.calendar.get_working_intervals_of_day(
             self.holiday_start,
             self.holiday_end,
-            default_interval=default_interval
         )
 
-        self.assertEqual(interval, [(
+        self.assertEqual(interval[0], [(
             self.holiday_start,
             self.holiday_end
         )])
@@ -299,8 +296,8 @@ class TestLeaveHours(common.TransactionCase):
         employee_list._compute_leaves_count()
 
     def test_07_get_hours(self):
-        self.leave_allocation_1.action_approve()
-        self.leave_1.action_approve()
+        self.leave_allocation_1.holidays_validate()
+        self.leave_1.holidays_validate()
         hours = self.status_1.get_hours(self.employee_1)
 
         self.assertEqual(hours['virtual_remaining_hours'], 72.0)

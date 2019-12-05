@@ -35,7 +35,7 @@ If the employee wants to request half a day:
 
 In case a working time schedule is defined for an employee, the duration (in hours) will be
 automatically filled while setting the starting date and the ending date of a leave request.
-If the "Working Time" is not set for the employee, but the employee has a contract with
+If the "Working Time" is not set for the employee, but the employee has contracts with
 a working schedule, the duration (in hours) will be automatically filled as well.
 
 Usage
@@ -49,17 +49,11 @@ To allocate hours for an employee:
 
 #. From menu Leaves, create an Allocation Request by setting the duration in hours (instead of days)
 
-To fully benefit from this module, the HR Officer should set a working time schedule for the employees.
+To fully benefit from this module, the HR Officer should set a working schedule for the employees.
 The duration (in hours) will be automatically filled while setting the start and the end date of a leave.
-In thi cas, the employee requesting a leave is still able to adjust the hours manually.
+In this case, the employee requesting a leave is still able to adjust the hours manually.
 
 To set a working schedule for an employee:
-
-#. From menu Employees -> Employees, select one employee
-#. Set the "Working Time" field
-
-If the "Working Time" is not set for the employee, but the employee has a contract with
-a working schedule, the duration (in hours) will be automatically filled as well.
 
 #. From menu Employees -> Employees, select one employee
 #. Click on Contracts and select the employee's actual contract

@@ -1,20 +1,26 @@
 # -*- coding: utf-8 -*-
 # Copyright 2017 Onestein (<http://www.onestein.eu>)
+# Copyright 2019 Coop IT Easy SCRLfs
+#   - Vincent Van Rossem <vincent@coopiteasy.be>
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
-from odoo import fields, models, tools
+from openerp import api, fields, models, tools
 
 
 class HrHolidaysRemainingLeavesUser(models.Model):
     _inherit = "hr.holidays.remaining.leaves.user"
+
+    name = fields.Char('Employee', readonly=True)
+    no_of_leaves = fields.Integer('Remaining leaves', readonly=True)
+    user_id = fields.Many2one('res.users', string='User', readonly=True)
+    leave_type = fields.Char('Leave Type', readonly=True)
 
     no_of_hours = fields.Float('Approved hours')
     virtual_hours = fields.Float('Virtual hours')
     no_of_leaves = fields.Integer('Remaining hours')
     employee_id = fields.Many2one('hr.employee', 'Employee')
 
-    def init(self):
-        cr = self._cr
+    def init(self, cr):
         tools.drop_view_if_exists(cr, 'hr_holidays_remaining_leaves_user')
         cr.execute("""
             CREATE or REPLACE view hr_holidays_remaining_leaves_user as (
