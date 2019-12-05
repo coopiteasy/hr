@@ -17,7 +17,7 @@ class HrHolidays(models.Model):
     # number_of_days_temp = fields.Float('Allocation', readonly=True, copy=False,
     #                                    states={'draft': [('readonly', False)], 'confirm': [('readonly', False)]})
 
-    @api.onchange('employee_id')
+    @api.onchange("employee_id")
     def onchange_holiday_employee(self):
         self.department_id = None
         self.number_of_hours_temp = 0.0
@@ -25,10 +25,10 @@ class HrHolidays(models.Model):
             self._set_number_of_hours_temp()
             self.department_id = self.employee_id.department_id
 
-    @api.onchange('date_from', 'date_to')
+    @api.onchange("date_from", "date_to")
     def onchange_date(self):
         # Check in context what form is open: add or remove
-        if self.env.context.get('default_type', '') == 'add':
+        if self.env.context.get("default_type", "") == "add":
             return
 
         self._check_dates()
@@ -36,17 +36,21 @@ class HrHolidays(models.Model):
         self._set_number_of_hours_temp()
 
     @api.multi
-    @api.onchange('date_from')
+    @api.onchange("date_from")
     def onchange_date_from(self):
-        res = super(HrHolidays, self).onchange_date_from(self.date_to, self.date_from)
-        self.number_of_days_temp = res['value']['number_of_days_temp']
+        res = super(HrHolidays, self).onchange_date_from(
+            self.date_to, self.date_from
+        )
+        self.number_of_days_temp = res["value"]["number_of_days_temp"]
         return res
 
     @api.multi
-    @api.onchange('date_to')
+    @api.onchange("date_to")
     def onchange_date_to(self):
-        res = super(HrHolidays, self).onchange_date_to(self.date_to, self.date_from)
-        self.number_of_days_temp = res['value']['number_of_days_temp']
+        res = super(HrHolidays, self).onchange_date_to(
+            self.date_to, self.date_from
+        )
+        self.number_of_days_temp = res["value"]["number_of_days_temp"]
         return res
 
     @api.multi
@@ -63,8 +67,7 @@ class HrHolidays(models.Model):
         if date:
             this_year = datetime.date.today().year
             reference_date = fields.Datetime.context_timestamp(
-                self.env.user,
-                datetime.datetime(this_year, 1, 1, 12)
+                self.env.user, datetime.datetime(this_year, 1, 1, 12)
             )
             dt = fields.Datetime.from_string(date)
             tz_dt = fields.Datetime.context_timestamp(self.env.user, dt)
@@ -78,16 +81,16 @@ class HrHolidays(models.Model):
         # date_to has to be greater than date_from
         if self.date_from and self.date_to:
             if self.date_from > self.date_to:
-                raise UserError(_(
-                    'The start date must be anterior to the end date.'
-                ))
+                raise UserError(
+                    _("The start date must be anterior to the end date.")
+                )
 
     @api.multi
     def _check_employee(self):
         self.ensure_one()
         employee = self.employee_id
         if not employee and (self.date_to or self.date_from):
-            raise UserError(_('Set an employee first!'))
+            raise UserError(_("Set an employee first!"))
 
     @api.multi
     def _compute_work_hours(self, from_dt, to_dt):
@@ -101,7 +104,8 @@ class HrHolidays(models.Model):
                     from_dt,
                     to_dt,
                     compute_leaves=True,
-                    resource_id=employee.resource_id.id)
+                    resource_id=employee.resource_id.id,
+                )
                 if wh:
                     work_hours += wh[0]
         return work_hours
@@ -118,43 +122,39 @@ class HrHolidays(models.Model):
                     working_hours.append(contract.working_hours)
         return working_hours
 
-    @api.depends('number_of_hours_temp', 'state')
+    @api.depends("number_of_hours_temp", "state")
     def _compute_number_of_hours(self):
         for rec in self:
             number_of_hours = rec.number_of_hours_temp
-            if rec.type == 'remove':
+            if rec.type == "remove":
                 number_of_hours = -rec.number_of_hours_temp
 
             rec.virtual_hours = number_of_hours
-            if rec.state not in ('validate',):
+            if rec.state not in ("validate",):
                 number_of_hours = 0.0
             rec.number_of_hours = number_of_hours
 
     number_of_hours_temp = fields.Float(
-        string='Allocation in Hours',
+        string="Allocation in Hours",
         digits=(2, 2),
         readonly=True,
-        states={'draft': [('readonly', False)],
-                'confirm': [('readonly', False)]}
+        states={
+            "draft": [("readonly", False)],
+            "confirm": [("readonly", False)],
+        },
     )
     number_of_hours = fields.Float(
-        compute='_compute_number_of_hours',
-        store=True
+        compute="_compute_number_of_hours", store=True
     )
     virtual_hours = fields.Float(
-        compute='_compute_number_of_hours',
-        store=True
+        compute="_compute_number_of_hours", store=True
     )
     working_hours = fields.Float(digits=(2, 2))
 
-    @api.constrains(
-        'holiday_type',
-        'type',
-        'employee_id',
-        'holiday_status_id')
+    @api.constrains("holiday_type", "type", "employee_id", "holiday_status_id")
     def _check_holidays(self):
         for holiday in self:
-            if holiday.holiday_type != 'employee' or holiday.type != 'remove':
+            if holiday.holiday_type != "employee" or holiday.type != "remove":
                 continue
             if holiday.employee_id and not holiday.holiday_status_id.limit:
                 leave_hours = holiday.holiday_status_id.get_hours(
@@ -164,35 +164,44 @@ class HrHolidays(models.Model):
 
     @api.model
     def _check_leave_hours(self, leave_hours):
-        remaining = leave_hours['remaining_hours']
-        virt_remaining = leave_hours['virtual_remaining_hours']
+        remaining = leave_hours["remaining_hours"]
+        virt_remaining = leave_hours["virtual_remaining_hours"]
         if remaining < 0 or virt_remaining < 0:
             # Raising a warning gives a more user-friendly
             # feedback than the default constraint error
-            raise ValidationError(_(
-                'The number of remaining hours is not sufficient for '
-                'this leave type.\nPlease check for allocation requests '
-                'awaiting validation.'))
+            raise ValidationError(
+                _(
+                    "The number of remaining hours is not sufficient for "
+                    "this leave type.\nPlease check for allocation requests "
+                    "awaiting validation."
+                )
+            )
 
     @api.multi
     def name_get(self):
         res = []
         for leave in self:
-            res.append((leave.id, _("%s on %s : %.2f hour(s)") % (
-                leave.employee_id.name,
-                leave.holiday_status_id.name,
-                leave.number_of_hours_temp
-            )))
+            res.append(
+                (
+                    leave.id,
+                    _("%s on %s : %.2f hour(s)")
+                    % (
+                        leave.employee_id.name,
+                        leave.holiday_status_id.name,
+                        leave.number_of_hours_temp,
+                    ),
+                )
+            )
         return res
 
     @api.multi
     def holidays_validate(self):
-        #TODO compare with 10.0 and confirm it's correctly inherited
+        # TODO compare with 10.0 and confirm it's correctly inherited
         res = super(HrHolidays, self).holidays_validate()
         for holiday in self:
-            if holiday.holiday_type == 'category':
+            if holiday.holiday_type == "category":
                 for employee in holiday.category_id.employee_ids:
-                    self.write({
-                        'number_of_hours_temp': holiday.number_of_hours_temp,
-                    })
+                    self.write(
+                        {"number_of_hours_temp": holiday.number_of_hours_temp}
+                    )
         return res
