@@ -14,11 +14,35 @@ from openerp.exceptions import Warning as UserError
 class HrHolidays(models.Model):
     _inherit = "hr.holidays"
 
-    # number_of_days_temp = fields.Float('Allocation', readonly=True, copy=False,
-    #                                    states={'draft': [('readonly', False)], 'confirm': [('readonly', False)]})
+    number_of_hours_temp = fields.Float(
+        string="Allocation in Hours",
+        digits=(2, 2),
+        readonly=True,
+        states={
+            "draft": [("readonly", False)],
+            "confirm": [("readonly", False)],
+        },
+    )
+    number_of_hours = fields.Float(
+        compute="_compute_number_of_hours", store=True
+    )
+    virtual_hours = fields.Float(
+        compute="_compute_number_of_hours", store=True
+    )
+    working_hours = fields.Float(digits=(2, 2))
 
     @api.onchange("employee_id")
-    def onchange_holiday_employee(self):
+    def onchange_employee(self):
+        # Get result of original onchange_employee from parent class:
+        res = super(HrHolidays, self).onchange_employee(self.employee_id.id)
+
+        # Workaround for api incompatibility:
+        if type(res) is dict and res.has_key("value"):
+            for field, value in res.get("value").items():
+                if hasattr(self, field):
+                    setattr(self, field, value)
+
+        # Additional code
         self.department_id = None
         self.number_of_hours_temp = 0.0
         if self.employee_id:
@@ -35,23 +59,31 @@ class HrHolidays(models.Model):
         self._check_employee()
         self._set_number_of_hours_temp()
 
-    @api.multi
     @api.onchange("date_from")
     def onchange_date_from(self):
+        # Get result of original onchange_employee from parent class:
         res = super(HrHolidays, self).onchange_date_from(
             self.date_to, self.date_from
         )
-        self.number_of_days_temp = res["value"]["number_of_days_temp"]
-        return res
 
-    @api.multi
+        # Workaround for api incompatibility:
+        if type(res) is dict and res.has_key("value"):
+            for field, value in res.get("value").items():
+                if hasattr(self, field):
+                    setattr(self, field, value)
+
     @api.onchange("date_to")
     def onchange_date_to(self):
+        # Get result of original onchange_employee from parent class:
         res = super(HrHolidays, self).onchange_date_to(
             self.date_to, self.date_from
         )
-        self.number_of_days_temp = res["value"]["number_of_days_temp"]
-        return res
+
+        # Workaround for api incompatibility:
+        if type(res) is dict and res.has_key("value"):
+            for field, value in res.get("value").items():
+                if hasattr(self, field):
+                    setattr(self, field, value)
 
     @api.multi
     def _set_number_of_hours_temp(self):
@@ -133,23 +165,6 @@ class HrHolidays(models.Model):
             if rec.state not in ("validate",):
                 number_of_hours = 0.0
             rec.number_of_hours = number_of_hours
-
-    number_of_hours_temp = fields.Float(
-        string="Allocation in Hours",
-        digits=(2, 2),
-        readonly=True,
-        states={
-            "draft": [("readonly", False)],
-            "confirm": [("readonly", False)],
-        },
-    )
-    number_of_hours = fields.Float(
-        compute="_compute_number_of_hours", store=True
-    )
-    virtual_hours = fields.Float(
-        compute="_compute_number_of_hours", store=True
-    )
-    working_hours = fields.Float(digits=(2, 2))
 
     @api.constrains("holiday_type", "type", "employee_id", "holiday_status_id")
     def _check_holidays(self):

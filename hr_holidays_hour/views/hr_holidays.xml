@@ -27,28 +27,23 @@
         <field name="model">hr.holidays</field>
         <field name="inherit_id" ref="hr_holidays.edit_holiday_new" />
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='date_from']" position="replace">
-                <field name="date_from" attrs="{'required':[('type', '=', 'remove')]}" class="oe_inline"/>
-            </xpath>
-
-            <xpath expr="//field[@name='date_to']" position="replace">
-                <field name="date_to" attrs="{'required':[('type', '=', 'remove')]}" class="oe_inline"/>
-            </xpath>
-
-            <xpath expr="//field[@name='employee_id']" position="replace">
-                <field name="employee_id" attrs="{'required':[('holiday_type','=','employee')],'invisible':[('holiday_type','=','category')]}" groups="base.group_hr_user"/>
-            </xpath>
-
+            <field name="date_from" position="replace">
+                <field name="date_from" on_change="1" attrs="{'required':[('type', '=', 'remove')]}" class="oe_inline"/>
+            </field>
+            <field name="date_to" position="replace">
+                <field name="date_to" on_change="1" attrs="{'required':[('type', '=', 'remove')]}" class="oe_inline"/>
+            </field>
             <xpath expr="//form/sheet/group/group/div/div[2]" position="after">
                 <label for="number_of_hours_temp" string="Hours"/>
                 <field name="number_of_hours_temp"/>
             </xpath>
-
             <xpath expr="//form/sheet/group/group/div/div[2]" position="attributes">
                 <attribute name="invisible">1</attribute>
                 <attribute name="attrs">{'invisible': 1}</attribute>
             </xpath>
-
+            <field name="employee_id" position="replace">
+                <field name="employee_id" attrs="{'required':[('holiday_type','=','employee')],'invisible':[('holiday_type','=','category')]}" on_change="1" groups="base.group_hr_user"/>
+            </field>
         </field>
     </record>
 
@@ -78,20 +73,6 @@
         </field>
     </record>
 
-    <record id="view_holiday_allocation_tree_customize_inherit_leave_hours" model="ir.ui.view">
-        <field name="model">hr.holidays</field>
-        <field name="inherit_id" ref="hr_holidays.view_holiday_allocation_tree_customize"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name='date_from']" position="replace">
-                <field name="date_from" required="1"/>
-            </xpath>
-
-            <xpath expr="//field[@name='date_to']" position="replace">
-                <field name="date_to" required="1"/>
-            </xpath>
-        </field>
-    </record>
-
     <record id="view_holiday_simple_inherit_leave_hours" model="ir.ui.view">
         <field name="model">hr.holidays</field>
         <field name="inherit_id" ref="hr_holidays.view_holiday_simple"/>
@@ -107,7 +88,7 @@
         </field>
     </record>
 
-    <record id="view_holiday_inherit_leave_hours" model="ir.ui.view">
+      <record id="view_holiday_inherit_leave_hours" model="ir.ui.view">
         <field name="model">hr.holidays</field>
         <field name="inherit_id" ref="hr_holidays.view_holiday"/>
         <field name="arch" type="xml">
