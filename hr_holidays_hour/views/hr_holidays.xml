@@ -41,6 +41,9 @@
                 <attribute name="invisible">1</attribute>
                 <attribute name="attrs">{'invisible': 1}</attribute>
             </xpath>
+            <field name="holiday_type" position="replace">
+                <field name="holiday_type" on_change="1" attrs="{'readonly':[('type', '=', 'remove'),('state','!=','draft')]}" string="Mode" groups="base.group_hr_user" context="{'employee_id':employee_id}" />
+            </field>
             <field name="employee_id" position="replace">
                 <field name="employee_id" attrs="{'required':[('holiday_type','=','employee')],'invisible':[('holiday_type','=','category')]}" on_change="1" groups="base.group_hr_user"/>
             </field>
@@ -52,7 +55,7 @@
         <field name="inherit_id" ref="hr_holidays.view_evaluation_report_graph"/>
         <field name="priority">500</field>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='number_of_days']" position="replace">
+            <xpath expr="//field[@name='number_of_days']" position="after">
                 <field name="number_of_hours" type="measure"/>
                 <field name="virtual_hours" type="measure"/>
             </xpath>
@@ -70,6 +73,19 @@
             <xpath expr="//field[@name='number_of_days']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
+        </field>
+    </record>
+
+    <record id="view_holiday_allocation_tree_customize_inherit_leave_hours" model="ir.ui.view">
+        <field name="model">hr.holidays</field>
+        <field name="inherit_id" ref="hr_holidays.view_holiday_allocation_tree_customize"/>
+        <field name="arch" type="xml">
+            <field name="date_from" position="replace">
+                <field name="date_from" required="1" on_change="1"/>
+            </field>
+            <field name="date_to" position="replace">
+                <field name="date_to" required="1" on_change="1"/>
+            </field>
         </field>
     </record>
 

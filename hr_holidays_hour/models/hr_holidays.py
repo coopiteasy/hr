@@ -5,10 +5,44 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 import datetime
+import logging
 
 from openerp import _, api, fields, models
+from openerp.osv import osv
 from openerp.exceptions import ValidationError
 from openerp.exceptions import Warning as UserError
+
+_logger = logging.getLogger(__name__)
+
+
+class HrHolidays(osv.osv):
+    _inherit = "hr.holidays"
+
+    # workaround to override constraints
+
+    def _check_date(self, cr, uid, ids, context=None):
+        return True
+
+    _check_holidays = lambda self, cr, uid, ids, context=None: self.check_holidays(
+        cr, uid, ids, context=context
+    )
+
+    _constraints = [
+        (
+            _check_date,
+            "You can not have 2 leaves that overlaps on same day!",
+            ["date_from", "date_to"],
+        ),
+        (
+            _check_holidays,
+            "The number of remaining leaves is not sufficient for this leave type.\n"
+            "Please verify also the leaves waiting for validation.",
+            ["state", "number_of_days_temp"],
+        ),
+    ]
+
+    def check_holidays(self, cr, uid, ids, context=None):
+        return True
 
 
 class HrHolidays(models.Model):
