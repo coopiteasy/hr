@@ -11,7 +11,7 @@
     "author": "Coop IT Easy SCRLfs, Odoo Community Association (OCA)",
     "website": "www.coopiteasy.be",
     "license": "AGPL-3",
-    "depends": ["hr_holidays", "hr_contract"],
+    "depends": ["hr_holidays", "hr_contract", "web_readonly_bypass"],
     "data": ["views/hr_holidays_view.xml", "views/company_view.xml"],
     "demo": [],
     "installable": True,
