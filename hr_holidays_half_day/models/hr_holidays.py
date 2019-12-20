@@ -7,6 +7,7 @@ import math
 from pytz import timezone, UTC
 
 from openerp import models, fields, api, _
+from openerp.exceptions import ValidationError
 
 
 def floatime_to_hour_minute(f):
@@ -23,65 +24,79 @@ class HrHolidays(models.Model):
         default="day",
     )
 
-    @api.onchange("date_from")
-    def onchange_date_from(self):
-        res = super(HrHolidays, self).onchange_date_from(
-            self.date_to, self.date_from
+    @api.onchange("holiday_status_id")
+    def _onchange_holiday_status_id(self):
+        self.number_of_days_temp = self._recompute_days()
+
+    def _recompute_days(self):
+        date_from = self.date_from
+        date_to = self.date_to
+        if (date_to and date_from) and (date_from <= date_to):
+            duration = self._compute_number_of_days(
+                self.employee_id.id, date_from, date_to
+            )
+            return duration
+
+    @api.multi
+    def onchange_employee(self, employee_id):
+        res = super(HrHolidays, self).onchange_employee(employee_id)
+        duration = self._recompute_days()
+        res["value"]["number_of_days_temp"] = duration
+        return res
+
+    @api.multi
+    def onchange_date_from(self, date_to, date_from):
+        res = super(HrHolidays, self).onchange_date_from(date_to, date_from)
+        employee_id = self.employee_id.id or self.env.context.get(
+            "employee_id", False
         )
+        if (date_to and date_from) and (date_from <= date_to):
+            diff_day = self._compute_number_of_days(
+                employee_id, date_from, date_to
+            )
+            res["value"]["number_of_days_temp"] = diff_day
+        return res
 
-        # Workaround for api incompatibility:
-        if type(res) is dict and res.has_key("value"):
-            for field, value in res.get("value").items():
-                if hasattr(self, field):
-                    setattr(self, field, value)
-
-        diff_day = self._compute_number_of_days(
-            self.employee_id, self.date_from, self.date_to
+    @api.multi
+    def onchange_date_to(self, date_to, date_from):
+        res = super(HrHolidays, self).onchange_date_to(date_to, date_from)
+        employee_id = self.employee_id.id or self.env.context.get(
+            "employee_id", False
         )
-        self.number_of_days_temp = diff_day
-
-    @api.onchange("date_to")
-    def onchange_date_to(self):
-        res = super(HrHolidays, self).onchange_date_to(
-            self.date_to, self.date_from
-        )
-
-        # Workaround for api incompatibility:
-        if type(res) is dict and res.has_key("value"):
-            for field, value in res.get("value").items():
-                if hasattr(self, field):
-                    setattr(self, field, value)
-
-        diff_day = self._compute_number_of_days(
-            self.employee_id, self.date_from, self.date_to
-        )
-        self.number_of_days_temp = diff_day
+        if (date_to and date_from) and (date_from <= date_to):
+            diff_day = self._compute_number_of_days(
+                employee_id, date_from, date_to
+            )
+            res["value"]["number_of_days_temp"] = diff_day
+        return res
 
     @api.onchange("period")
     def onchange_period(self):
-        period = self.period
-        from_dt = fields.Datetime.from_string(self.date_from)
-        to_dt = fields.Datetime.from_string(self.date_to)
+        if self.type != "add":
+            period = self.period
+            from_dt = fields.Datetime.from_string(self.date_from)
+            to_dt = fields.Datetime.from_string(self.date_to)
 
-        company = self.env["res.company"].browse(
-            self.employee_id.company_id.id
-        )
-
-        if period == "am":
-            from_dt, to_dt = self._replace_duration(
-                from_dt, to_dt, company.am_hour_from, company.am_hour_to
-            )
-        elif period == "pm":
-            from_dt, to_dt = self._replace_duration(
-                from_dt, to_dt, company.pm_hour_from, company.pm_hour_to
-            )
-        else:
-            from_dt, to_dt = self._replace_duration(
-                from_dt, to_dt, company.am_hour_from, company.pm_hour_to
+            company = self.env["res.company"].browse(
+                self.employee_id.company_id.id
             )
 
-        self.date_from = fields.Datetime.to_string(from_dt)
-        self.date_to = fields.Datetime.to_string(to_dt)
+            if period == "am":
+                from_dt, to_dt = self._replace_duration(
+                    from_dt, to_dt, company.am_hour_from, company.am_hour_to
+                )
+            elif period == "pm":
+                from_dt, to_dt = self._replace_duration(
+                    from_dt, to_dt, company.pm_hour_from, company.pm_hour_to
+                )
+            else:
+                from_dt, to_dt = self._replace_duration(
+                    from_dt, to_dt, company.am_hour_from, company.pm_hour_to
+                )
+
+            self.date_from = fields.Datetime.to_string(from_dt)
+            self.date_to = fields.Datetime.to_string(to_dt)
+            self.number_of_days_temp = self._recompute_days()
 
     def _replace_duration(self, date_from, date_to, hour_from, hour_to):
         hour, minute = floatime_to_hour_minute(hour_from)
@@ -93,15 +108,17 @@ class HrHolidays(models.Model):
 
     def _compute_number_of_days(self, employee_id, date_from, date_to):
         """ Returns a float equals to the timedelta between two dates given as string."""
-        diff_day = self._get_number_of_days(date_from, date_to)
-
+        hours = 0.0
         if employee_id:
-            employee = self.env["hr.employee"].browse(employee_id.id)
-            company = self.env["res.company"].browse(employee_id.company_id.id)
+            employee = self.env["hr.employee"].browse(employee_id)
+            company = self.env["res.company"].browse(employee.company_id.id)
+            if not company.hours_per_day:
+                raise ValidationError(
+                    _("You must define company working hours")
+                )
             from_dt = fields.Datetime.from_string(date_from)
             to_dt = fields.Datetime.from_string(date_to)
             contracts = employee.sudo().contract_ids
-            hours = 0.0
             for contract in contracts:
                 for calendar in contract.working_hours:
                     working_hours = calendar.get_working_hours(
@@ -111,11 +128,16 @@ class HrHolidays(models.Model):
                         compute_leaves=True,
                     )
                     hours += sum(wh for wh in working_hours)
-        if hours:
-            return hours / company.hours_per_day
-        return diff_day
+            if hours:
+                hours /= company.hours_per_day
+        return hours
 
     def _get_utc_date(self, day, hour, minute):
+        tz = self._context.get("tz") or self.env.user.tz
+        if not tz:
+            raise ValidationError(
+                _("You must define a timezone for this user")
+            )
         context_tz = timezone(self._context.get("tz") or self.env.user.tz)
         day_time = day.replace(hour=hour, minute=minute)
         day_local_time = context_tz.localize(day_time)
