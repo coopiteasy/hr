@@ -77,9 +77,7 @@ class HrHolidays(models.Model):
             from_dt = fields.Datetime.from_string(self.date_from)
             to_dt = fields.Datetime.from_string(self.date_to)
 
-            company = self.env["res.company"].browse(
-                self.employee_id.company_id.id
-            )
+            company = self.employee_id.company_id
 
             if period == "am":
                 from_dt, to_dt = self._replace_duration(
@@ -111,7 +109,7 @@ class HrHolidays(models.Model):
         hours = 0.0
         if employee_id:
             employee = self.env["hr.employee"].browse(employee_id)
-            company = self.env["res.company"].browse(employee.company_id.id)
+            company = employee.company_id
             if not company.hours_per_day:
                 raise ValidationError(
                     _("You must define company working hours")
