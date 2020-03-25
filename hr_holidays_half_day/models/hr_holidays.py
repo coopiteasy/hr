@@ -24,25 +24,14 @@ class HrHolidays(models.Model):
         default="day",
     )
 
-    @api.onchange("holiday_status_id")
-    def _onchange_holiday_status_id(self):
-        self.number_of_days_temp = self._recompute_days()
-
     def _recompute_days(self):
         date_from = self.date_from
         date_to = self.date_to
         if (date_to and date_from) and (date_from <= date_to):
-            duration = self._compute_number_of_days(
+            duration = self._compute_number_of_days_from_contract(
                 self.employee_id.id, date_from, date_to
             )
             return duration
-
-    @api.multi
-    def onchange_employee(self, employee_id):
-        res = super(HrHolidays, self).onchange_employee(employee_id)
-        duration = self._recompute_days()
-        res["value"]["number_of_days_temp"] = duration
-        return res
 
     @api.multi
     def onchange_date_from(self, date_to, date_from):
@@ -51,7 +40,7 @@ class HrHolidays(models.Model):
             "employee_id", False
         )
         if (date_to and date_from) and (date_from <= date_to):
-            diff_day = self._compute_number_of_days(
+            diff_day = self._compute_number_of_days_from_contract(
                 employee_id, date_from, date_to
             )
             res["value"]["number_of_days_temp"] = diff_day
@@ -64,7 +53,7 @@ class HrHolidays(models.Model):
             "employee_id", False
         )
         if (date_to and date_from) and (date_from <= date_to):
-            diff_day = self._compute_number_of_days(
+            diff_day = self._compute_number_of_days_from_contract(
                 employee_id, date_from, date_to
             )
             res["value"]["number_of_days_temp"] = diff_day
@@ -72,7 +61,7 @@ class HrHolidays(models.Model):
 
     @api.onchange("period")
     def onchange_period(self):
-        if self.type != "add":
+        if self.employee_id and self.type != "add":
             period = self.period
             from_dt = fields.Datetime.from_string(self.date_from)
             to_dt = fields.Datetime.from_string(self.date_to)
@@ -94,7 +83,6 @@ class HrHolidays(models.Model):
 
             self.date_from = fields.Datetime.to_string(from_dt)
             self.date_to = fields.Datetime.to_string(to_dt)
-            self.number_of_days_temp = self._recompute_days()
 
     def _replace_duration(self, date_from, date_to, hour_from, hour_to):
         hour, minute = floatime_to_hour_minute(hour_from)
@@ -102,9 +90,10 @@ class HrHolidays(models.Model):
 
         hour, minute = floatime_to_hour_minute(hour_to)
         utc_date_to = self._get_utc_date(date_to, hour, minute)
+
         return utc_date_from, utc_date_to
 
-    def _compute_number_of_days(self, employee_id, date_from, date_to):
+    def _compute_number_of_days_from_contract(self, employee_id, date_from, date_to):
         """ Returns a float equals to the timedelta between two dates given as string."""
         hours = 0.0
         if employee_id:
@@ -136,7 +125,7 @@ class HrHolidays(models.Model):
             raise ValidationError(
                 _("You must define a timezone for this user")
             )
-        context_tz = timezone(self._context.get("tz") or self.env.user.tz)
+        context_tz = timezone(tz)
         day_time = day.replace(hour=hour, minute=minute)
         day_local_time = context_tz.localize(day_time)
         day_utc_time = day_local_time.astimezone(UTC)
